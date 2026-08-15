@@ -16,6 +16,11 @@ import httpx
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "60"))
+# Cap generated tokens -- these prompts only need a small JSON object back,
+# and every extra token the model generates (rambling "reason" text
+# especially) directly adds to wall-clock time per call. 220 tokens is
+# comfortably enough for the JSON shape used in prompts/identity_v1.txt.
+DEFAULT_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "220"))
 
 
 class OllamaUnavailable(Exception):
@@ -43,7 +48,7 @@ def list_models() -> list:
         return []
 
 
-def generate(model: str, prompt: str, timeout: Optional[float] = None) -> dict:
+def generate(model: str, prompt: str, timeout: Optional[float] = None, num_predict: Optional[int] = None) -> dict:
     """
     Send a prompt to a local Ollama model. Returns:
       {"ok": True, "raw_response": str, "latency_ms": int}
@@ -56,7 +61,14 @@ def generate(model: str, prompt: str, timeout: Optional[float] = None) -> dict:
         with httpx.Client(timeout=timeout or DEFAULT_TIMEOUT) as client:
             resp = client.post(
                 f"{OLLAMA_HOST}/api/generate",
-                json={"model": model, "prompt": prompt, "stream": False},
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": num_predict or DEFAULT_NUM_PREDICT,
+                    },
+                },
             )
             resp.raise_for_status()
             data = resp.json()
