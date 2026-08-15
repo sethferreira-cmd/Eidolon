@@ -5,10 +5,19 @@ Accepts an experiment configuration, builds prompts from the baseline
 and variant identities, sends them to a local Ollama model, parses and
 stores structured responses, and never fabricates missing values --
 a failed or unparseable response is stored as such.
+
+Ollama calls are I/O-bound (waiting on the network/local daemon), so they
+are dispatched concurrently via a thread pool rather than one at a time.
+Database writes are still done sequentially on the main thread after each
+call completes, since sqlite3 connections aren't safe to share across
+threads -- this keeps the speedup (parallel *waiting*) without introducing
+write-concurrency bugs.
 """
 
+import os
 import sys
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 # Make top-level project modules importable (models.py transformation logic
@@ -21,6 +30,14 @@ from app.services.question_bank import get_question_bank
 from providers import ollama as ollama_provider
 
 PROMPT_TEMPLATE_PATH = Path(__file__).resolve().parent.parent.parent.parent / "prompts" / "identity_v1.txt"
+
+# How many Ollama requests to have in flight at once. Ollama serializes
+# requests against a single loaded model on most consumer hardware anyway,
+# so this mainly helps by overlapping request/response overhead rather than
+# giving true N-way inference speedup -- but it consistently cuts wall-clock
+# time in practice. Override with the OLLAMA_CONCURRENCY env var if a
+# machine has more (or less) headroom than the default.
+DEFAULT_CONCURRENCY = int(os.environ.get("OLLAMA_CONCURRENCY", "3"))
 
 
 def _load_template() -> str:
@@ -87,15 +104,33 @@ def run_experiment(
         )
         conn.commit()
 
+    # Build the full (trial, question) work list up front so it can be
+    # dispatched to a thread pool instead of awaited one call at a time.
+    work_items = [
+        (trial, question)
+        for trial in range(trial_count)
+        for question in questions
+    ]
+
+    def _call_ollama(item):
+        trial, question = item
+        prompt = _build_prompt(question, baseline, variant, condition)
+        prompt = _apply_blind_labels(prompt, blind_condition)
+        gen = ollama_provider.generate(model, prompt)
+        return trial, question, gen
+
     results = []
     any_ok = False
 
-    for trial in range(trial_count):
-        for question in questions:
-            prompt = _build_prompt(question, baseline, variant, condition)
-            prompt = _apply_blind_labels(prompt, blind_condition)
+    concurrency = max(1, min(DEFAULT_CONCURRENCY, len(work_items) or 1))
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        futures = [pool.submit(_call_ollama, item) for item in work_items]
 
-            gen = ollama_provider.generate(model, prompt)
+        # Write results to the database as each call finishes, on this
+        # (single) thread -- sqlite3 connections must not be shared or
+        # written to concurrently from multiple threads.
+        for future in as_completed(futures):
+            trial, question, gen = future.result()
             run_id = str(uuid.uuid4())
 
             with get_conn() as conn:
