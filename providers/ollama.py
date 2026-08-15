@@ -21,6 +21,11 @@ DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "60"))
 # especially) directly adds to wall-clock time per call. 220 tokens is
 # comfortably enough for the JSON shape used in prompts/identity_v1.txt.
 DEFAULT_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "220"))
+# Ollama's native structured-output mode: constrains generation to valid
+# JSON, which both cuts wasted tokens (no markdown fences, no preamble
+# chatter) and improves parse reliability. Can be disabled via env var if a
+# specific model behaves worse under the constraint.
+USE_JSON_FORMAT = os.environ.get("OLLAMA_JSON_FORMAT", "1") != "0"
 
 
 class OllamaUnavailable(Exception):
@@ -59,17 +64,17 @@ def generate(model: str, prompt: str, timeout: Optional[float] = None, num_predi
     start = time.time()
     try:
         with httpx.Client(timeout=timeout or DEFAULT_TIMEOUT) as client:
-            resp = client.post(
-                f"{OLLAMA_HOST}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "num_predict": num_predict or DEFAULT_NUM_PREDICT,
-                    },
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": num_predict or DEFAULT_NUM_PREDICT,
                 },
-            )
+            }
+            if USE_JSON_FORMAT:
+                payload["format"] = "json"
+            resp = client.post(f"{OLLAMA_HOST}/api/generate", json=payload)
             resp.raise_for_status()
             data = resp.json()
             latency_ms = int((time.time() - start) * 1000)

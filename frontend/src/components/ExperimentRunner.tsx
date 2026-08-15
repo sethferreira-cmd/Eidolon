@@ -92,15 +92,17 @@ export function ExperimentRunner({
 
         <label className="flex flex-col gap-1">
           <span className="text-[var(--color-text-faint)] uppercase tracking-widest text-[10px]">Trials</span>
-          <select
+          <input
+            type="number"
+            min={1}
+            max={50}
             className="bg-[var(--color-panel-raised)] border border-[var(--color-line)] rounded-sm px-2 py-1.5 text-[var(--color-text)]"
             value={trials}
-            onChange={(e) => setTrials(Number(e.target.value))}
-          >
-            {[5, 10, 20, 50].map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) setTrials(Math.max(1, Math.min(50, Math.round(v))));
+            }}
+          />
         </label>
 
         <label className="flex items-center gap-2 mt-5">
