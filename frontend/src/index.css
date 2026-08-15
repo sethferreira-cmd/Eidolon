@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #0a0b0d;
+  --color-panel: #121418;
+  --color-panel-raised: #171a1f;
+  --color-line: #262a30;
+  --color-line-bright: #3a3f47;
+  --color-text: #e7e5e0;
+  --color-text-dim: #9a9fa6;
+  --color-text-faint: #5c6169;
+  --color-amber: #e8a33d;
+  --color-amber-dim: #8a6229;
+  --color-cyan: #5fd0c9;
+  --color-red: #d9695f;
+}
+
+html, body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+
+::selection {
+  background: var(--color-amber-dim);
+  color: var(--color-ink);
+}
+
+.scanline-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

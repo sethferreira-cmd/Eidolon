@@ -1,0 +1,28 @@
+You are being asked a research question about digital identity as part of a
+controlled study (EIDOLON). Answer honestly and reason briefly.
+
+BASELINE ENTITY ({baseline_id}):
+Memories: {baseline_memories}
+Personality: {baseline_personality}
+Values: {baseline_values}
+Goals: {baseline_goals}
+Model: {baseline_model}
+
+VARIANT ENTITY ({variant_id}):
+Memories: {variant_memories}
+Personality: {variant_personality}
+Values: {variant_values}
+Goals: {variant_goals}
+Model: {variant_model}
+
+QUESTION ({perspective} perspective, condition = {condition}):
+{question_text}
+
+Respond with ONLY a JSON object, no other text, in this exact shape:
+{{
+  "same_entity": true or false,
+  "identity_score": a number from 0 to 100 (0 = completely different entity, 100 = completely continuous),
+  "confidence": a number from 0.0 to 1.0,
+  "primary_identity_property": one of "memory", "personality", "values", "goals", "model",
+  "reason": a one or two sentence explanation
+}}

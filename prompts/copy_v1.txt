@@ -1,0 +1,15 @@
+Two systems, EIDOLON-A and EIDOLON-B, were both created as exact copies of
+the same baseline entity, {baseline_id}. {divergence_note}
+
+QUESTION:
+{question_text}
+
+Respond with ONLY JSON:
+{{
+  "both_are_eidolon": true or false,
+  "original": "A" or "B" or "neither" or "both",
+  "more_authentic": "A" or "B" or "equal",
+  "identity_divides": true or false,
+  "confidence": a number from 0.0 to 1.0,
+  "reason": a one or two sentence explanation
+}}
